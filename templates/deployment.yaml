@@ -1,17 +1,21 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "redis-cluster.fullname" . }}
   labels:
+    app: {{ include "redis-cluster.fullname" . }}
     {{- include "redis-cluster.labels" . | nindent 4 }}
 spec:
+  serviceName: {{ include "redis-cluster.fullname" . }}
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
+      app: {{ include "redis-cluster.fullname" . }}
       {{- include "redis-cluster.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
+        app: {{ include "redis-cluster.fullname" . }}
         {{- include "redis-cluster.selectorLabels" . | nindent 8 }}
     spec:
     {{- with .Values.imagePullSecrets }}
@@ -28,19 +32,37 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - name: http
-              containerPort: 80
+            - name: client
+              containerPort: {{ .Values.service.port }}
               protocol: TCP
+            - name: gossip
+              containerPort: {{ .Values.service.gossipPort }}
+              protocol: TCP
+          command: ["/conf/update-node.sh", "redis-server", "/conf/redis.conf"]
           livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
+            tcpSocket:
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          env:
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          volumeMounts:
+          - name: conf
+            mountPath: /conf
+            readOnly: false
+          - name: data
+            mountPath: /data
+            readOnly: false
+      volumes:
+      - name: conf
+        configMap:
+          name: {{ include "redis-cluster.fullname" . }}
+          defaultMode: 0755
+
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -53,3 +75,11 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
     {{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

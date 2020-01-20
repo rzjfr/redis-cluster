@@ -3,13 +3,19 @@ kind: Service
 metadata:
   name: {{ include "redis-cluster.fullname" . }}
   labels:
+    app: {{ include "redis-cluster.fullname" . }}
     {{- include "redis-cluster.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: http
+      targetPort: {{ .Values.service.port }}
       protocol: TCP
-      name: http
+      name: client
+    - port: {{ .Values.service.gossipPort }}
+      targetPort: {{ .Values.service.gossipPort }}
+      protocol: TCP
+      name: gossip
   selector:
     {{- include "redis-cluster.selectorLabels" . | nindent 4 }}
+    app: {{ include "redis-cluster.fullname" . }}

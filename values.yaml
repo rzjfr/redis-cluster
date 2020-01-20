@@ -2,10 +2,10 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-replicaCount: 1
+replicaCount: 6
 
 image:
-  repository: nginx
+  repository: redis
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -14,7 +14,7 @@ fullnameOverride: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: true
+  create: false
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name:
@@ -32,7 +32,8 @@ securityContext: {}
 
 service:
   type: ClusterIP
-  port: 80
+  port: 6379
+  gossipPort: 16379
 
 ingress:
   enabled: false
